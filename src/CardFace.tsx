@@ -48,8 +48,12 @@ interface CardFaceProps {
    * illustration (still keyed by the card's underlying standard suit, same pose/linework as
    * 'compact') rather than switching to CourtFigure's silhouette, but its baked red/gold/navy get
    * recolored to the tarot palette too (see TAROT_COURT_COLOR_OVERRIDES below), so it doesn't show
-   * the standard deck's colors next to a tarot-colored corner pip. Defaults to 'compact'. */
-  cardStyle?: 'compact' | 'decorated' | 'tarot'
+   * the standard deck's colors next to a tarot-colored corner pip. 'numeric' is another peer
+   * option - identical to 'compact' in every way (corner index, court figures, standard-theme
+   * corner pip) except the big center glyph on non-court ranks: a large rank numeral (BIG_RANK_
+   * FONT_SCALE below) instead of a big SuitPip, for a more at-a-glance-readable tableau (e.g. a
+   * Spider run of same-suit cards, where every big pip looks alike). Defaults to 'compact'. */
+  cardStyle?: 'compact' | 'decorated' | 'tarot' | 'numeric'
   /** Dark mode only: flips black suit ink (spades/clubs) to white and the card face to near-black
    * (see stores/settings.tsx's invertDarkModeColors and theme.ts's *Inverted tokens). Never touches
    * red ink. Tarot's own tarotInk palette (blue/gold/brown/grey - no black or white) is untouched
@@ -104,8 +108,39 @@ const MUTED_OPACITY = 0.35
 // wand's brown - paired with gold, silver reads as the more natural "royal metal accents" pairing.
 const TAROT_COURT_COLOR_OVERRIDES: Partial<DecoratedPackColors> = { inkRedAlt: tarotInk.hearts, gold: tarotInk.diamonds, navy: tarotInk.spades }
 
+// 'numeric' style's big center rank glyph, as a fraction of card width. '10' is the only non-
+// court rank whose label is two characters (see rankLabel), so it gets its own smaller constant
+// scale - chosen so its plain, untransformed, unspaced width comfortably fits the card on its own
+// (measured: ~74% of card width at this scale, leaving a real margin either side - see git history
+// for the arithmetic). Two earlier approaches (negative letterSpacing, then a scaleX transform)
+// tried to keep '10' at the single-glyph font size and squeeze it to fit instead - both introduced
+// real centering/clipping bugs from browser-specific text-layout quirks (letterSpacing applies
+// after the *last* character too, shrinking the measured box without moving that glyph; scaleX
+// needed numberOfLines removed to dodge a separate ellipsis-truncation-before-transform bug). A
+// plain, smaller, ordinarily-centered Text has none of that surface area - simplicity over
+// pixel-perfect uniformity here.
+function bigRankFontScale(rank: Rank): number {
+  return rank === 10 ? 0.65 : 0.85
+}
+
+// DejaVu Serif Bold's '1' carries noticeably more left side-bearing (blank space before its own
+// ink starts) than '0' carries on its right - measured directly via Canvas's actualBoundingBox*
+// metrics at a fixed reference size: '1' leaves ~12.2% of its own em blank on the left, '0' leaves
+// only ~4.7% blank on the right. '10's layout box centers perfectly (confirmed: equal blank margin
+// either side of the box), but that built-in bearing gap means the *visible ink* inside the box
+// still sits visibly right of center - this is what actually reads as "hugging the right edge",
+// not a layout bug. A fixed compensating nudge fixes the optical center without any of the
+// previous attempts' dynamic-CSS fragility (no letterSpacing, no transform, no numberOfLines
+// interplay) - just a constant, measured offset for the one rank wide enough for the asymmetry to
+// be visible. undefined (no nudge) for every other rank, which is only ever one glyph wide and
+// whose own bearing asymmetry (if any) is far too small to read as off-center.
+function bigRankOpticalNudge(rank: Rank): number | undefined {
+  return rank === 10 ? -0.0244 : undefined
+}
+
 /**
- * The face-up content of a card: corner indices plus a single big suit pip.
+ * The face-up content of a card: corner indices plus a single big suit pip (or, in 'numeric'
+ * style, a big rank numeral in its place).
  * Memoized for the same reason as its children (SuitPip) - `card`/`colors` are stable
  * references across unrelated re-renders (e.g. the per-second elapsed-time timer), so this can
  * safely skip re-rendering except when the card itself actually changes.
@@ -116,6 +151,7 @@ const TAROT_COURT_COLOR_OVERRIDES: Partial<DecoratedPackColors> = { inkRedAlt: t
  */
 export const CardFace = React.memo(function CardFace({ card, colors, width, height, muted, cardStyle, invertDarkModeColors }: CardFaceProps) {
   const isTarot = cardStyle === 'tarot'
+  const isNumeric = cardStyle === 'numeric'
   const blackInk = invertDarkModeColors ? colors.textBlackInverted : colors.textBlack
   const color = muted ? blackInk : isTarot ? tarotInk[card.suit] : cardColor(card.suit) === 'red' ? colors.textRed : blackInk
   const cornerRowHeight = width * CORNER_ROW_FRACTION
@@ -178,6 +214,12 @@ export const CardFace = React.memo(function CardFace({ card, colors, width, heig
 
       {courtRank ? (
         <View style={[styles.courtFigureWrap, { top: cornerRowHeight + height * COURT_TOP_INSET_FRACTION }]}>{muted ? <CourtFigure rank={courtRank} color={color} width={width} height={height - cornerRowHeight} /> : <DecoratedCourtFigure suit={card.suit} rank={courtRank} width={width} height={height - cornerRowHeight} colorOverrides={colorOverrides} />}</View>
+      ) : isNumeric ? (
+        <View style={[styles.centerFill, { top: cornerRowHeight }]}>
+          <Text numberOfLines={1} style={[styles.bigRankText, { color, fontSize: width * bigRankFontScale(card.rank), marginLeft: width * (bigRankOpticalNudge(card.rank) ?? 0) }]}>
+            {rankLabel(card.rank)}
+          </Text>
+        </View>
       ) : (
         <View style={[styles.centerFill, { top: cornerRowHeight }]}>
           <SuitPip suit={card.suit} color={color} size={width * 0.74} theme={isTarot ? 'tarot' : 'standard'} />
@@ -188,6 +230,12 @@ export const CardFace = React.memo(function CardFace({ card, colors, width, heig
 })
 
 const styles = StyleSheet.create({
+  bigRankText: {
+    fontFamily: CARD_FONT_FAMILY,
+    fontWeight: '700',
+    textAlign: 'center',
+    userSelect: 'none'
+  },
   centerFill: {
     alignItems: 'center',
     bottom: 0,

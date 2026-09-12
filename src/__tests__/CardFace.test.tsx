@@ -52,6 +52,22 @@ describe('CardFace', () => {
     expect(toJSON()).not.toBeNull()
   })
 
+  it('renders the numeric card style for a numbered card without throwing', async () => {
+    const { toJSON } = await render(<CardFace card={numberedCard} colors={colors} width={64} height={93} cardStyle='numeric' />)
+    expect(toJSON()).not.toBeNull()
+  })
+
+  it('renders the numeric card style for a two-character rank (10) without throwing', async () => {
+    const tenCard: Card = { id: 'spades-10-0', suit: 'spades', rank: 10, faceUp: true }
+    const { toJSON } = await render(<CardFace card={tenCard} colors={colors} width={64} height={93} cardStyle='numeric' />)
+    expect(toJSON()).not.toBeNull()
+  })
+
+  it('renders the numeric card style for a court card with its illustrated figure, not a numeral', async () => {
+    const { toJSON } = await render(<CardFace card={courtCard} colors={colors} width={64} height={93} cardStyle='numeric' />)
+    expect(toJSON()).not.toBeNull()
+  })
+
   it('renders with invertDarkModeColors without throwing', async () => {
     const { toJSON } = await render(<CardFace card={courtCard} colors={colors} width={64} height={93} invertDarkModeColors />)
     expect(toJSON()).not.toBeNull()
