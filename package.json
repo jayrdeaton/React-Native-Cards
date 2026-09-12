@@ -1,6 +1,6 @@
 {
   "name": "@tastic/cards",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Reusable playing-card rendering for React Native card games: card faces, backs, court figures, suit pips, and a decorated art pack, plus the shared card/suit/rank vocabulary (including jokers) and a card-size layout context",
   "keywords": [
     "react-native",
