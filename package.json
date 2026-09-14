@@ -57,7 +57,8 @@
   },
   "prettier": "@infinitetoken/eslint-config/prettier",
   "dependencies": {
-    "@rific/auto-paper": "^0.10.0"
+    "@rific/auto-paper": "^0.11.0",
+    "@rific/core": "^0.1.1"
   },
   "devDependencies": {
     "@infinitetoken/eslint-config": "^0.2.0",
