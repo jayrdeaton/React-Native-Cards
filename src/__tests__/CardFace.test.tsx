@@ -4,6 +4,18 @@ import { CardFace } from '../CardFace'
 import { TableColors } from '../colors'
 import { Card } from '../types'
 
+// Recursively finds the first node of the given host-element type in a test-renderer JSON tree
+// (react-native.ts's mock View/Image, react-native-svg.ts's mock Svg are all plain strings, so
+// `.type` is directly comparable) - used below to tell "rendered the bitmap" (an Image node exists
+// somewhere under the court-figure area) from "rendered the live vector figure" (it doesn't) without
+// asserting on the whole tree shape.
+function findByType(node: unknown, type: string): boolean {
+  if (!node || typeof node !== 'object') return false
+  const n = node as { type?: unknown; children?: unknown[] }
+  if (n.type === type) return true
+  return (n.children ?? []).some((child) => findByType(child, type))
+}
+
 const colors: TableColors = {
   tableFelt: '#0B6E4F',
   tableFeltDark: '#08573F',
@@ -71,5 +83,47 @@ describe('CardFace', () => {
   it('renders with invertDarkModeColors without throwing', async () => {
     const { toJSON } = await render(<CardFace card={courtCard} colors={colors} width={64} height={93} invertDarkModeColors />)
     expect(toJSON()).not.toBeNull()
+  })
+
+  describe('bitmapCourtFigures', () => {
+    it('defaults to the live vector figure (no Image node) when omitted', async () => {
+      const { toJSON } = await render(<CardFace card={courtCard} colors={colors} width={64} height={93} />)
+      expect(findByType(toJSON(), 'Image')).toBe(false)
+    })
+
+    it('renders the pre-rasterized bitmap for a court card in the default (compact, light, non-tarot) case', async () => {
+      const { toJSON } = await render(<CardFace card={courtCard} colors={colors} width={64} height={93} bitmapCourtFigures />)
+      expect(findByType(toJSON(), 'Image')).toBe(true)
+    })
+
+    it('is a no-op for a non-court rank (nothing to swap - still the big SuitPip, no Image)', async () => {
+      const { toJSON } = await render(<CardFace card={numberedCard} colors={colors} width={64} height={93} bitmapCourtFigures />)
+      expect(findByType(toJSON(), 'Image')).toBe(false)
+    })
+
+    it('falls back to the live vector figure when muted (the bitmap has no neutral/tinted form)', async () => {
+      const { toJSON } = await render(<CardFace card={courtCard} colors={colors} width={64} height={93} bitmapCourtFigures muted />)
+      expect(findByType(toJSON(), 'Image')).toBe(false)
+    })
+
+    it('falls back to the live vector figure when invertDarkModeColors is set (the bitmap bakes in only the default palette)', async () => {
+      const { toJSON } = await render(<CardFace card={courtCard} colors={colors} width={64} height={93} bitmapCourtFigures invertDarkModeColors />)
+      expect(findByType(toJSON(), 'Image')).toBe(false)
+    })
+
+    it("falls back to the live vector figure for cardStyle='tarot' (its own recolored figure, not the default palette)", async () => {
+      const { toJSON } = await render(<CardFace card={courtCard} colors={colors} width={64} height={93} bitmapCourtFigures cardStyle='tarot' />)
+      expect(findByType(toJSON(), 'Image')).toBe(false)
+    })
+
+    it("does not throw for cardStyle='decorated' (an entirely different whole-card component - bitmapCourtFigures never reaches the court-figure branch at all)", async () => {
+      const { toJSON } = await render(<CardFace card={courtCard} colors={colors} width={64} height={93} bitmapCourtFigures cardStyle='decorated' />)
+      expect(toJSON()).not.toBeNull()
+    })
+
+    it('renders the bitmap under the numeric card style too (bitmapCourtFigures is independent of cardStyle, aside from tarot/decorated)', async () => {
+      const { toJSON } = await render(<CardFace card={courtCard} colors={colors} width={64} height={93} bitmapCourtFigures cardStyle='numeric' />)
+      expect(findByType(toJSON(), 'Image')).toBe(true)
+    })
   })
 })
