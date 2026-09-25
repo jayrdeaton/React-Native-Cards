@@ -1,14 +1,17 @@
 import React from 'react'
-import { StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, View } from 'react-native'
 
 import { CourtRank } from './artwork/court'
 import { DecoratedPackColors } from './artwork/decoratedCustom/colors'
 import { tarotInk } from './artwork/tarotPips'
+import { BigRankGlyph } from './BigRankGlyph'
 import { TableColors } from './colors'
 import { CourtFigure } from './CourtFigure'
 import { DecoratedCardFace } from './DecoratedCardFace'
 import { DecoratedCourtFigure } from './DecoratedCourtFigure'
-import { CARD_FONT_FAMILY } from './fonts'
+import { DecoratedCourtFigureBitmap } from './DecoratedCourtFigureBitmap'
+import { RANK_SVG_LEFT_FRACTION, RankGlyph } from './RankGlyph'
+import { RankGlyphLabel } from './rankGlyphs'
 import { SuitPip } from './SuitPip'
 import { Card, cardColor, Rank, rankLabel } from './types'
 
@@ -59,6 +62,17 @@ interface CardFaceProps {
    * red ink. Tarot's own tarotInk palette (blue/gold/brown/grey - no black or white) is untouched
    * either way; only its card face background inverts. A no-op in light mode. */
   invertDarkModeColors?: boolean
+  /** Render a Jack/Queen/King's court figure from a pre-rasterized bitmap (DecoratedCourtFigureBitmap)
+   * instead of the live DecoratedCourtFigure vector tree - see that component's own doc comment for
+   * when this is worth reaching for (many rapid mounts/unmounts, e.g. a deal's ghost pool) versus
+   * when it isn't (a settled, steady-state board, which already pays nothing extra thanks to
+   * DecoratedCourtFigure's own memoization). Silently ignored - falls back to the live vector figure
+   * - whenever the bitmap couldn't be a faithful stand-in: `muted` (no neutral/tinted form exists),
+   * `invertDarkModeColors` or a non-default `cardStyle` (`tarot`/`decorated` both recolor or replace
+   * the figure entirely; the bitmap only has the one default palette baked in). A no-op on every
+   * non-court rank. Defaults to false (the live vector figure), so no existing caller's rendering
+   * changes without opting in. */
+  bitmapCourtFigures?: boolean
 }
 
 // Height of the top corner row, as a fraction of card width - the big pip below is
@@ -66,18 +80,36 @@ interface CardFaceProps {
 // of the full card (which would skew it toward the top, under the corner row).
 // Exported so PileView can derive its tableau fan overlap to clear this row with an even
 // margin on both sides, rather than approximating it with an independently-tuned constant.
-export const CORNER_ROW_FRACTION = 0.38
+// 0.39 (was 0.38, i.e. faceUpFanOffset(w) is 0.45w, was 0.44w): the rank is drawn larger (0.37W, was
+// 0.34W) and centred on the pip, which puts J and Q's descenders - the lowest ink - at ~0.42W from
+// the card's top; the extra hundredth keeps them a clear 0.02W+ above the card stacked over them.
+export const CORNER_ROW_FRACTION = 0.39
 // Corner row's own inset from the card's top edge, as a fraction of card width rather than a
 // fixed pixel value - keeps the row's bottom edge a consistent fraction of card height across
 // viewport sizes, which PileView's tableau fan overlap relies on to clear it cleanly.
 export const CORNER_ROW_TOP_FRACTION = 0.03
-// Fixed width for the corner rank label, as a fraction of card width - wide enough to fit '10'
-// (the only two-character rank) without crowding. Every rank centers within this same box rather
-// than sizing to its own text width, so the suit pip beside it sits at a consistent x regardless
-// of whether the rank above it is one or two characters.
-const RANK_TEXT_WIDTH_FRACTION = 0.46
+// How far the suit pip's right edge sits inside the frame's inner edge, as a fraction of card
+// width. It used to be a flat 3pt (~0.06W on the ~50pt cards it was tuned on), which crowded the
+// '10' on a 28-34pt card and floated away from the edge on a large one; as a fraction it's the same
+// picture at every size. Tightened again, 0.06 -> 0.04, to make room for CORNER_PIP_FRACTION's
+// growth below without crowding the rank - the pip sits closer to the card's edge than either
+// earlier version (~2pt in from the frame at a 50pt card, was ~3pt), still clear of it.
+const CORNER_ROW_RIGHT_FRACTION = 0.04
+// The frame's border, as a fraction of card width (the row and every corner measure are laid out
+// inside it - absolutely positioned children start at the border's inner edge).
+const FRAME_BORDER_FRACTION = 0.02
+// The corner suit pip's size, as a fraction of card width - grown alongside the rank (0.28 -> 0.30,
+// +7%) once the bigger, bolder rank (0.34W -> 0.37W plus its stroke) made the old pip read as
+// undersized next to it. The '10' is the tightest case: its ink runs to RANK_INK_RIGHT_FRACTION
+// (0.5073W), and the pip's own ink - inset from its nominal box by its glyph's own padding, not a
+// clean box-edge measure - has to clear that by >= 0.10W (CornerRank.test.tsx). At the old 0.06W
+// right inset there was no room left to grow the pip at all (even +0.002W failed); pairing this
+// growth with CORNER_ROW_RIGHT_FRACTION's own reduction above is what makes room, measured off the
+// real rendered tree in the test rather than hand-derived (the pip art isn't a filled square, so a
+// box-edge estimate under-counts the gap by several hundredths of W).
+const CORNER_PIP_FRACTION = 0.3
 /** The vertical fan offset a face-up tableau card needs to clear the corner row of whatever's
- * stacked below it (see CORNER_ROW_FRACTION/CORNER_ROW_TOP_FRACTION above) - PileView's own resting
+ * stacked below it (see CORNER_ROW_FRACTION/CORNER_ROW_TOP_FRACTION above; 0.45 x width) - PileView's own resting
  * fan spacing, and the one every screen-level ghost's multi-card `offsetStep` must match exactly.
  * A ghost computing its own offset independently (e.g. from cardHeight and a fixed ratio) drifts
  * from this, since it isn't the same formula - the moving run then renders at a visibly different
@@ -108,35 +140,12 @@ const MUTED_OPACITY = 0.35
 // wand's brown - paired with gold, silver reads as the more natural "royal metal accents" pairing.
 const TAROT_COURT_COLOR_OVERRIDES: Partial<DecoratedPackColors> = { inkRedAlt: tarotInk.hearts, gold: tarotInk.diamonds, navy: tarotInk.spades }
 
-// 'numeric' style's big center rank glyph, as a fraction of card width. '10' is the only non-
-// court rank whose label is two characters (see rankLabel), so it gets its own smaller constant
-// scale - chosen so its plain, untransformed, unspaced width comfortably fits the card on its own
-// (measured: ~74% of card width at this scale, leaving a real margin either side - see git history
-// for the arithmetic). Two earlier approaches (negative letterSpacing, then a scaleX transform)
-// tried to keep '10' at the single-glyph font size and squeeze it to fit instead - both introduced
-// real centering/clipping bugs from browser-specific text-layout quirks (letterSpacing applies
-// after the *last* character too, shrinking the measured box without moving that glyph; scaleX
-// needed numberOfLines removed to dodge a separate ellipsis-truncation-before-transform bug). A
-// plain, smaller, ordinarily-centered Text has none of that surface area - simplicity over
-// pixel-perfect uniformity here.
-function bigRankFontScale(rank: Rank): number {
-  return rank === 10 ? 0.65 : 0.85
-}
-
-// DejaVu Serif Bold's '1' carries noticeably more left side-bearing (blank space before its own
-// ink starts) than '0' carries on its right - measured directly via Canvas's actualBoundingBox*
-// metrics at a fixed reference size: '1' leaves ~12.2% of its own em blank on the left, '0' leaves
-// only ~4.7% blank on the right. '10's layout box centers perfectly (confirmed: equal blank margin
-// either side of the box), but that built-in bearing gap means the *visible ink* inside the box
-// still sits visibly right of center - this is what actually reads as "hugging the right edge",
-// not a layout bug. A fixed compensating nudge fixes the optical center without any of the
-// previous attempts' dynamic-CSS fragility (no letterSpacing, no transform, no numberOfLines
-// interplay) - just a constant, measured offset for the one rank wide enough for the asymmetry to
-// be visible. undefined (no nudge) for every other rank, which is only ever one glyph wide and
-// whose own bearing asymmetry (if any) is far too small to read as off-center.
-function bigRankOpticalNudge(rank: Rank): number | undefined {
-  return rank === 10 ? -0.0244 : undefined
-}
+// 'numeric' style's big centre rank glyph used to be a plain Text (see BigRankGlyph.tsx, which now
+// draws it from the same glyph outlines and faux-bold stroke as the corner rank - matching git
+// history has the old Text-based sizing/nudge arithmetic this replaced, including the two rejected
+// letterSpacing/scaleX approaches to fitting '10' and the optical nudge DejaVu's side-bearing
+// asymmetry needed - a real ink-bounding-box centre (what BigRankGlyph draws from) has neither
+// concern: it fits '10' by construction and needs no separate nudge to look centred).
 
 /**
  * The face-up content of a card: corner indices plus a single big suit pip (or, in 'numeric'
@@ -149,9 +158,11 @@ function bigRankOpticalNudge(rank: Rank): number | undefined {
  * pip - or CourtFigure's tintable single-tone silhouette when muted, since the full-colour art has
  * no neutral form. Every other rank keeps the big pip.
  */
-export const CardFace = React.memo(function CardFace({ card, colors, width, height, muted, cardStyle, invertDarkModeColors }: CardFaceProps) {
+export const CardFace = React.memo(function CardFace({ card, colors, width, height, muted, cardStyle, invertDarkModeColors, bitmapCourtFigures }: CardFaceProps) {
   const isTarot = cardStyle === 'tarot'
   const isNumeric = cardStyle === 'numeric'
+  // See bitmapCourtFigures' own doc comment for why each of these disqualifies the bitmap.
+  const useBitmapCourtFigure = bitmapCourtFigures && !muted && !invertDarkModeColors && cardStyle !== 'tarot' && cardStyle !== 'decorated'
   const blackInk = invertDarkModeColors ? colors.textBlackInverted : colors.textBlack
   const color = muted ? blackInk : isTarot ? tarotInk[card.suit] : cardColor(card.suit) === 'red' ? colors.textRed : blackInk
   const cornerRowHeight = width * CORNER_ROW_FRACTION
@@ -194,31 +205,28 @@ export const CardFace = React.memo(function CardFace({ card, colors, width, heig
         // hint floats on its own felt-colored backdrop rather than sitting on an opaque white
         // card shape.
         backgroundColor: muted ? 'transparent' : invertDarkModeColors ? colors.cardFaceInverted : '#FFFFFF',
-        borderWidth: width * 0.02,
+        borderWidth: width * FRAME_BORDER_FRACTION,
         borderColor: muted ? color : invertDarkModeColors ? colors.textBlackInverted : '#000000',
         borderRadius: width * 0.06,
         opacity: muted ? MUTED_OPACITY : undefined
       }}
     >
       {/* Rank (top-left) and suit (top-right) share one row, vertically centered against
-          each other, rather than each being independently top-aligned - a Text glyph's
-          box doesn't sit flush with its own top edge the way an SVG's does, so matching
-          box tops still reads as uneven; centering the row is more forgiving. There's
-          deliberately no mirrored bottom copy - these cards are never viewed upside down. */}
-      <View style={[styles.cornerRow, { top: width * CORNER_ROW_TOP_FRACTION, height: cornerRowHeight }]}>
-        <Text numberOfLines={1} style={[styles.rankText, { color, fontSize: width * 0.34, width: width * RANK_TEXT_WIDTH_FRACTION, letterSpacing: -width * 0.02 }]}>
-          {rankLabel(card.rank)}
-        </Text>
-        <SuitPip suit={card.suit} color={color} size={width * 0.28} edgeFill theme={isTarot ? 'tarot' : 'standard'} />
+          each other. The rank is drawn from glyph outlines (RankGlyph) whose viewBox centres each
+          rank's INK - not its font box, which sits high for digits/A/K and low for J/Q - on this
+          row's centre, which is the pip's centre. (The Svg is whole points, rounded up, so it can
+          be under a point taller than the row; this row's alignItems centre keeps it centred.)
+          There's deliberately no mirrored bottom copy - these cards are never viewed upside down. */}
+      <View style={[styles.cornerRow, { top: width * CORNER_ROW_TOP_FRACTION, height: cornerRowHeight, left: width * (RANK_SVG_LEFT_FRACTION - FRAME_BORDER_FRACTION), right: width * CORNER_ROW_RIGHT_FRACTION }]}>
+        <RankGlyph label={rankLabel(card.rank) as RankGlyphLabel} color={color} cardWidth={width} rowFraction={CORNER_ROW_FRACTION} />
+        <SuitPip suit={card.suit} color={color} size={width * CORNER_PIP_FRACTION} edgeFill theme={isTarot ? 'tarot' : 'standard'} />
       </View>
 
       {courtRank ? (
-        <View style={[styles.courtFigureWrap, { top: cornerRowHeight + height * COURT_TOP_INSET_FRACTION }]}>{muted ? <CourtFigure rank={courtRank} color={color} width={width} height={height - cornerRowHeight} /> : <DecoratedCourtFigure suit={card.suit} rank={courtRank} width={width} height={height - cornerRowHeight} colorOverrides={colorOverrides} />}</View>
+        <View style={[styles.courtFigureWrap, { top: cornerRowHeight + height * COURT_TOP_INSET_FRACTION }]}>{muted ? <CourtFigure rank={courtRank} color={color} width={width} height={height - cornerRowHeight} /> : useBitmapCourtFigure ? <DecoratedCourtFigureBitmap suit={card.suit} rank={courtRank} width={width} height={height - cornerRowHeight} /> : <DecoratedCourtFigure suit={card.suit} rank={courtRank} width={width} height={height - cornerRowHeight} colorOverrides={colorOverrides} />}</View>
       ) : isNumeric ? (
         <View style={[styles.centerFill, { top: cornerRowHeight }]}>
-          <Text numberOfLines={1} style={[styles.bigRankText, { color, fontSize: width * bigRankFontScale(card.rank), marginLeft: width * (bigRankOpticalNudge(card.rank) ?? 0) }]}>
-            {rankLabel(card.rank)}
-          </Text>
+          <BigRankGlyph rank={card.rank} color={color} cardWidth={width} />
         </View>
       ) : (
         <View style={[styles.centerFill, { top: cornerRowHeight }]}>
@@ -230,12 +238,6 @@ export const CardFace = React.memo(function CardFace({ card, colors, width, heig
 })
 
 const styles = StyleSheet.create({
-  bigRankText: {
-    fontFamily: CARD_FONT_FAMILY,
-    fontWeight: '700',
-    textAlign: 'center',
-    userSelect: 'none'
-  },
   centerFill: {
     alignItems: 'center',
     bottom: 0,
@@ -248,23 +250,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    // Nudges the row slightly wider than the card's own edges (a hair off each side) - purely a
-    // visual balance tweak for the rank/suit glyphs, unrelated to `top`/`height` below (both
-    // genuinely dynamic fractions of `width`, so they stay inline rather than living here).
-    left: -2,
+    // `top`/`height`/`left`/`right` are all fractions of card width, so they're set inline. The
+    // suit pip is anchored to the right edge, the rank Svg to the left.
     position: 'absolute',
-    right: 3,
     zIndex: 2
   },
   courtFigureWrap: {
     left: 0,
     position: 'absolute',
     right: 0
-  },
-  rankText: {
-    fontFamily: CARD_FONT_FAMILY,
-    fontWeight: '700',
-    textAlign: 'center',
-    userSelect: 'none'
   }
 })

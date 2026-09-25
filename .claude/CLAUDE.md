@@ -26,6 +26,7 @@ npm run test:watch # Jest --watchAll
 npm run build      # tsup, config via tsup.config.cjs -> @infinitetoken/tsconfig/tsup/lib preset
 npm run build:watch
 npm run verify     # lint && test && typecheck && build — also runs via `preversion` (see Release)
+node scripts/generate-rank-glyphs.mjs   # regenerate src/rankGlyphs.ts from the vendored DejaVu Serif Bold (see below)
 ```
 
 Always run `npm run lint` before finishing any task.
@@ -82,7 +83,8 @@ Enforced by ESLint + Prettier — run the linter before finishing any task.
 | `colors.ts` | Just the `TableColors` interface — no palette, no derivation logic. This package renders whatever palette it's handed; a consuming app owns picking/deriving one (Solitaire's own `theme.ts` is a worked example, not part of this package). |
 | `CardSizeContext.tsx` | `CardSizeProvider`/`useCardSize`/`cardWidthForRow`. `CardSizeProvider` takes an `aspectRatio` prop (defaults to `CARD_ASPECT`, Solitaire's own 64/93 standard-deck ratio) instead of importing fixed `CARD_WIDTH`/`CARD_HEIGHT` from an app-owned theme — this is what lets a consumer with different card proportions (e.g. a taller tarot-only deck) size its own board without forking this file. Deliberately does not carry Solitaire's `FACE_UP_OFFSET_RATIO`/`FACE_DOWN_OFFSET_RATIO` — those tune a tableau's own fan-stacking overlap, not a property of a card itself. |
 | `fonts.ts` | `CARD_FONT_FAMILY` (`'DejaVu Serif'`) — the font every generated decorated-mode rank-corner text glyph is baked to expect (`fontWeight: 'bold'`, see `artwork/decoratedCustom`'s generation script comments). A consuming app is responsible for actually loading this font (e.g. via `expo-font` + `dejavu-fonts-ttf`, as Solitaire's own `useFontsPreload` does) — this package only names it. |
-| `CardFace.tsx` | Face-up card content: corner rank/suit index plus a big center pip, or a court figure for Jack/Queen/King. `compact` (tintable single-tone ink, this file's own rendering), `decorated` (delegates whole-card to `DecoratedCardFace`), and `tarot` (compact's own layout, recolored to the Minor Arcana suits via `tarotInk`) styles; a colorless `muted` watermark render; a dark-mode ink/face inversion. Exports `CORNER_ROW_FRACTION`/`CORNER_ROW_TOP_FRACTION`/`faceUpFanOffset` so a consumer's own tableau-fan layout can clear the corner row by an exact, non-guessed margin. |
+| `CardFace.tsx` | Face-up card content: corner rank/suit index plus a big center pip, or a court figure for Jack/Queen/King. `compact` (tintable single-tone ink, this file's own rendering), `decorated` (delegates whole-card to `DecoratedCardFace`), and `tarot` (compact's own layout, recolored to the Minor Arcana suits via `tarotInk`) styles; a colorless `muted` watermark render; a dark-mode ink/face inversion. Exports `CORNER_ROW_FRACTION` (0.39)/`CORNER_ROW_TOP_FRACTION` (0.03)/`faceUpFanOffset` (0.45 x width) so a consumer's own tableau-fan layout can clear the corner row by an exact, non-guessed margin. The corner row's every measure (rank Svg left, pip right, row top/height) is a pure fraction of card width - no absolute-point offsets. |
+| `RankGlyph.tsx` / `rankGlyphs.ts` | The corner rank of `compact`/`numeric`/`tarot`, drawn from glyph OUTLINES rather than a `<Text>`: DejaVu Serif Bold at 0.37W with a faux-bold stroke (0.035em, round joins, in the ink colour), which RN's `Text` can't do, and which also makes the rank independent of font loading and identical on every platform. Two native views (Svg + Path). Each rank's Svg viewBox centres that rank's INK (not its font box, which sits high for digits/A/K and low for J/Q) on the row's centre, i.e. the suit pip's centre; horizontally every rank is centred in one fixed 0.46W box (so the pip never moves with it) except that the box is placed so the '10''s ink starts at 0.062W from the card's left edge at every width. `rankGlyphs.ts` is GENERATED (never edit it) by `scripts/generate-rank-glyphs.mjs` from `scripts/fonts/DejaVuSerif-Bold.ttf` (vendored with its licence, not shipped; `opentype.js` is a devDependency for it only) - the 13 outlines, y-down font units, contours closed with Z (so the stroke joins at the start point), plus the font size / letter-spacing fractions the '10' layout is baked with. The Svg is wider than the box (padded) because the '10''s ink overshoots the box and native Svgs can clip. **The Svg's size is whole points, rounded UP (`rankSvgSize`), with a viewBox built for exactly that box at the designed scale** - react-native-svg's root `Svg` truncates a fractional `width`/`height` with `parseInt` (its `Svg.tsx`, both native platforms; RNSVGSvgView.mm/SvgView.java then fit the viewBox into that truncated box, `bbWidth`/`bbHeight` only matter for a nested Svg), so a fractional size drew the whole rank at `floor(w)/w` of its scale (0.916x at a 28pt card, and the '10' ink-left wandered 0.058W-0.073W) - web and jest keep the fractions and never show it, which is why `CornerRank.test.tsx` models the truncation. Extra width is added on the right (ink x unchanged) and extra height symmetrically (the row's `alignItems: 'center'` - unclamped in Yoga - keeps the ink centred). **Accessibility:** the rank used to be a `Text`; the Svg is `accessible` + `accessibilityRole='image'` + `accessibilityLabel` on native and `role='img'` + `aria-label` on web (`Platform.select` - react-native-web would put `accessible` on the DOM and React warns about the non-boolean attribute). `RANK_INK_RIGHT_FRACTION` (~0.5073W, the '10', half the stroke included) is exported for a layout that shows only the left strip of covered cards (draw-3 waste fan): `faceUpFanOffset` (0.45W) clips the '0'. The big numeral of `numeric` style is still a `Text` in `CARD_FONT_FAMILY`. |
 | `CardBack.tsx` | An original hand-drawn geometric card back (two-tone diamond weave, nested-diamond medallion) — not derived from the SVG-cards sheet, unlike `DecoratedCardBack`. Recolorable to any `TableColors`, and can host a short player-tag monogram in the medallion. Exports `MARGIN_FRACTION`, the sheet-matched card-wide margin every `Decorated*` sibling reuses for its own inset. |
 | `CourtFigure.tsx` | The single-tone Jack/Queen/King silhouette `CardFace` falls back to for a *muted* court card — the full-colour decorated art (`DecoratedCourtFigure`) has no neutral/tintable form. |
 | `SuitPip.tsx` | A single suit glyph (heart/diamond/club/spade), tinted by the caller. `theme: 'tarot'` swaps in `artwork/tarotPips`' cups/coins/wands/swords instead of the standard four. |
@@ -127,6 +129,7 @@ export { SUITS, SUIT_SYMBOLS, cardColor, rankLabel, cloneCard, isJoker } from '.
 export type { TableColors } from './colors'
 export { CardSizeProvider, useCardSize, CARD_ASPECT, cardWidthForRow } from './CardSizeContext'
 export { CARD_FONT_FAMILY } from './fonts'
+export { RANK_INK_RIGHT_FRACTION } from './RankGlyph'
 ```
 
 None of the component prop-type interfaces (`CardFaceProps`, `CardBackProps`, etc.) are exported
@@ -169,10 +172,12 @@ No `react-native-reanimated`, no `react-native-gesture-handler`.
   itself — `render()` calls straight into it — so it's a devDependency here too, alongside the
   `react-native`/`react-native-svg` mocks below.
 - **Location:** `src/__tests__/*.test.ts` and `*.test.tsx`
+- **Corner-rank tests:** `CornerRank.test.tsx` renders every rank x suit x style (compact/numeric/tarot) at card widths 28/28.2/34/50.571/64/96 (plus a 0.37pt sweep from 28 to 96 for a handful of ranks) and reads the ink boxes back off the rendered props + the generated outline table, through a model of react-native-svg's native `parseInt` truncation (rank ink centre == pip centre within 0.002W, J/Q ink clear of the 0.45W strip by 0.02W, '10' ink-left 0.062W and >= 0.10W from the pip, drawn at exactly the designed scale, `faceUpFanOffset(1) === 0.45`), the native/web accessibility props, and `RANK_INK_RIGHT_FRACTION` against the rendered '10'. `rankGlyphs.test.ts` (node environment) checks the table against the vendored font with opentype.js and runs `scripts/generate-rank-glyphs.mjs --check` (fails if `src/rankGlyphs.ts` is stale).
 - **Mocks:** `src/__mocks__/`:
   - `react-native` — `StyleSheet.create`/`flatten` as identity functions (this package never
     measures a ref or reads `useWindowDimensions`, unlike `@tastic/split-screen`'s own richer mock);
-    `View`/`Text` as plain **string** element types, not function-component passthroughs.
+    `View`/`Text` as plain **string** element types, not function-component passthroughs;
+    `Platform` (`OS` mutable so a test can render as `'web'`, and `select`).
   - `react-native-svg` — `Svg` default export plus `G`/`Path`/`Rect`/`Circle`/`Line`/`Polygon`/
     `Polyline`/`Defs`/`ClipPath`/`Text`, every one also a plain string element type. No existing
     template for this mock anywhere else in the fleet, since no other package renders real SVG
@@ -208,8 +213,8 @@ No `react-native-reanimated`, no `react-native-gesture-handler`.
   `text`) just by being imported and rendered through those cases, so this also keeps
   `DecoratedShapeRenderer`'s own switch meaningfully covered without a dedicated unit test file for
   it.
-- **Current:** 8 suites / 50 tests, all passing. Coverage: 97.06% stmts / 93.84% branches / 87.5%
-  funcs / 97.67% lines — clears the shared preset's 70%/70%/70%/70% default on every metric (every
+- **Current:** 10 suites / 119 tests, all passing. Coverage: 98.45% stmts / 96.47% branches / 92.68%
+  funcs / 99.01% lines — clears the shared preset's 70%/70%/70%/70% default on every metric (every
   `artwork/` data file included, since `collectCoverageFrom` scopes to all of `src/**/*.{ts,tsx}`),
   so `jest.config.cjs` carries no local `coverageThreshold` override.
 - When adding new component prop or card-vocabulary behavior, add a corresponding test case.
