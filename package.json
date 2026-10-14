@@ -17,7 +17,7 @@
     "type": "git",
     "url": "git+https://github.com/jayrdeaton/react-native-cards.git"
   },
-  "license": "MIT",
+  "license": "(MIT AND LGPL-2.1-only)",
   "author": "Jay Deaton",
   "sideEffects": false,
   "type": "commonjs",

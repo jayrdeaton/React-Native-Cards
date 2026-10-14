@@ -8,25 +8,25 @@ reuse it without depending on Solitaire itself.
 
 ## What it does
 
-- **`CardFace`** — a card's face-up content: corner rank/suit index plus a big center pip, or a
+- **`CardFace`**: a card's face-up content: corner rank/suit index plus a big center pip, or a
   full-colour court figure for Jack/Queen/King. Three styles: `compact` (tintable single-tone
   ink), `decorated` (full-colour illustrated art), and `tarot` (compact's own layout, recolored to
   the Minor Arcana suits). Supports a colorless `muted` watermark render (e.g. an empty foundation
   slot's suit hint) and a dark-mode ink/face inversion.
-- **`CardBack`** — an original hand-drawn geometric card back (two-tone diamond weave, nested-
+- **`CardBack`**: an original hand-drawn geometric card back (two-tone diamond weave, nested-
   diamond medallion), recolorable to any table palette and able to host a short player-tag
   monogram in the medallion.
-- **`CourtFigure`** — the single-tone Jack/Queen/King silhouette `CardFace` falls back to for a
+- **`CourtFigure`**: the single-tone Jack/Queen/King silhouette `CardFace` falls back to for a
   muted court card, since the full-colour decorated art has no neutral form.
-- **`SuitPip`** — a single suit glyph (heart/diamond/club/spade), tintable by the caller, with a
+- **`SuitPip`**: a single suit glyph (heart/diamond/club/spade), tintable by the caller, with a
   `tarot` theme swapping in cups/coins/wands/swords.
-- **`DecoratedCardFace` / `DecoratedCardBack` / `DecoratedCourtFigure`** — the full-colour
+- **`DecoratedCardFace` / `DecoratedCardBack` / `DecoratedCourtFigure`**: the full-colour
   illustrated deck's own card face, card back (`ornate`/`plain`), and court figure, each
   selectively recolorable via `colorOverrides` (e.g. for a dark-mode ink inversion) without
   touching the rest of the baked-in palette.
-- **Card vocabulary** (`types.ts`) — `Suit`, `Rank`, `Color`, `Card`, plus an additive `Joker`/
+- **Card vocabulary** (`types.ts`): `Suit`, `Rank`, `Color`, `Card`, plus an additive `Joker`/
   `AnyCard`/`isJoker` for games that deal jokers, and `cardColor`/`rankLabel`/`cloneCard` helpers.
-- **`CardSizeContext`** — `CardSizeProvider`/`useCardSize` size every card in a screen off a single
+- **`CardSizeContext`**: `CardSizeProvider`/`useCardSize` size every card in a screen off a single
   `width`, keeping an `aspectRatio` (defaults to `CARD_ASPECT`); `cardWidthForRow` fills a row of
   piles evenly within an available width.
 
@@ -49,12 +49,12 @@ function Table({ colors }: { colors: TableColors }) {
 }
 ```
 
-`colors` is any object matching the `TableColors` interface — this package renders whatever
+`colors` is any object matching the `TableColors` interface: this package renders whatever
 palette it's handed, it doesn't own or derive one itself.
 
 ## Install (local dev via yalc)
 
-Not installed from the registry by consuming apps during development — linked via yalc, same as
+Not installed from the registry by consuming apps during development; it's linked via yalc, same as
 `@rific/updater` is in this author's other projects:
 
 ```bash
@@ -67,7 +67,13 @@ Re-run `npm run build && yalc push` after any change to propagate it to every li
 ## Peer dependencies
 
 - `react` >=19.0.0, `react-native` >=0.76.0
-- `react-native-svg` >=15.0.0 — every SVG-rendered face/back/figure/pip
+- `react-native-svg` >=15.0.0: every SVG-rendered face/back/figure/pip
 
-Regular dependency: `@rific/auto-paper` — `CardBack`'s player-tag monogram picks a legible ink via
-`getContrastColor`.
+Regular dependency: `@rific/auto-paper` (`CardBack`'s player-tag monogram picks a legible ink via
+`getContrastColor`).
+
+## License
+
+The code is released under the MIT License, see [LICENSE](LICENSE).
+
+Most of the card artwork under [`src/artwork/`](src/artwork) (the pips, court figures, decorated faces, and the Ornate and Plain backs, plus the pre-rendered `courtBitmaps/`) is derived from [SVG-cards](https://github.com/htdebeer/SVG-cards), (C) 2005 David Bellot and (C) 2016, 2017 Huub de Beer, and is licensed under the [LGPL-2.1](src/artwork/LICENSE). See [NOTICE.md](src/artwork/NOTICE.md) for the full attribution, which must be kept with any distributed copy of the artwork. The diamond pip, the tarot pips, and the Geometric back are original. The package's SPDX license is `(MIT AND LGPL-2.1-only)`.

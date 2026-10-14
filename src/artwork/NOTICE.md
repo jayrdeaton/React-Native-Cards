@@ -11,7 +11,7 @@ hand-authored replacement):
 Per the original author: "the license is the LGPL so you can use this set of
 cards even in a non-free software."
 
-The full-colour "decorated" card style (`artwork/decorated/`) is generated
+The full-colour "decorated" card style (`src/artwork/decoratedCustom/`) is generated
 directly from the same SVG-cards source deck via
 `scripts/generate-card-artwork.mjs` - every card face (Ace-King, all four
 suits) and its illustrated court figures are derived from that project, not
@@ -26,6 +26,10 @@ The "Ornate" and "Plain" card back styles (`artwork/backs.ts`, selectable in
 Settings alongside the original "Geometric" design) are generated from the
 same source deck's own `back`/`alternate-back` designs via
 `scripts/generate-card-back.mjs` - see DecoratedCardBack.tsx.
+
+The pre-rendered court figure PNGs in `courtBitmaps/` are rasterized from
+DecoratedCourtFigure by `scripts/generate-court-bitmaps.mjs`, so they are
+derived from the same source deck and covered by this notice too.
 
 This notice must be kept with any distributed copy of this artwork (e.g. an
 in-app credits/about screen), per the LGPL-2.1's notice-preservation terms.

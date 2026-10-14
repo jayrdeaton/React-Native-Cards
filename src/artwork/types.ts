@@ -1,6 +1,6 @@
 // AUTO-GENERATED from SVG-cards (https://github.com/htdebeer/SVG-cards),
 // (c) 2005 David Bellot, (c) 2016-2017 Huub de Beer, LGPL-2.1.
-// See src/components/cards/artwork/NOTICE.md and LICENSE for attribution.
+// See src/artwork/NOTICE.md and LICENSE for attribution.
 // Do not hand-edit; regenerate with the extraction script if the source deck changes.
 
 /** A single-colour outline shape (suit pips, court figures), coloured by the caller at render time. */

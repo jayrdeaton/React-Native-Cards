@@ -1,6 +1,6 @@
 // Club, heart, and spade paths are AUTO-GENERATED from SVG-cards
 // (https://github.com/htdebeer/SVG-cards), (c) 2005 David Bellot, (c) 2016-2017 Huub de
-// Beer, LGPL-2.1. See src/components/cards/artwork/LICENSE for the full license text.
+// Beer, LGPL-2.1. See src/artwork/LICENSE for the full license text.
 // Do not hand-edit those three; regenerate with the extraction script if the source
 // deck changes. The diamond is a hand-authored replacement (plain rhombus) - the
 // original SVG-cards diamond has softly convex (bulging) edges that read fine as a
