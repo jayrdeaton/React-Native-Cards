@@ -52,7 +52,7 @@ first, so a broken lint/test/typecheck/build blocks the version bump.
 
 Pushing the tag triggers the `publish` GitHub Action (`.github/workflows/publish.yml`, calling the
 shared `infinitetoken/Workflows/.github/workflows/npm-publish.yml@v1`), which runs `npm publish`.
-Not yet published - `version` starts at `0.1.0` and no `release:*` has run yet.
+Published on npm as `@tastic/cards`.
 
 ## Local development (yalc)
 
