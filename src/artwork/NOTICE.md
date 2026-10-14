@@ -13,17 +13,17 @@ cards even in a non-free software."
 
 The full-colour "decorated" card style (`src/artwork/decoratedCustom/`) is generated
 directly from the same SVG-cards source deck via
-`scripts/generate-card-artwork.mjs` - every card face (Ace-King, all four
-suits) and its illustrated court figures are derived from that project, not
-just the pips.
+`scripts/generate-card-artwork.mjs` and `scripts/generate-court-figures.mjs` -
+every card face (Ace-King, all four suits) and its illustrated court figures
+are derived from that project, not just the pips.
 
 The "compact" style's court figure silhouettes (`artwork/court.ts`) are also
 derived from the same source deck, via `scripts/generate-court-silhouette.mjs`
 - one suit's king/queen/jack illustration flattened to a single-colour
 outline (see CourtFigure.tsx), not hand-drawn originals.
 
-The "Ornate" and "Plain" card back styles (`artwork/backs.ts`, selectable in
-Settings alongside the original "Geometric" design) are generated from the
+The "Ornate" and "Plain" card back styles (`artwork/backs.ts`, offered
+alongside the original "Geometric" design) are generated from the
 same source deck's own `back`/`alternate-back` designs via
 `scripts/generate-card-back.mjs` - see DecoratedCardBack.tsx.
 
@@ -31,16 +31,20 @@ The pre-rendered court figure PNGs in `courtBitmaps/` are rasterized from
 DecoratedCourtFigure by `scripts/generate-court-bitmaps.mjs`, so they are
 derived from the same source deck and covered by this notice too.
 
+The unmodified source deck these scripts read (SVG-cards 4.0.2) is kept in
+the repository at `scripts/svg-cards/svg-cards.svg`.
+
 This notice must be kept with any distributed copy of this artwork (e.g. an
 in-app credits/about screen), per the LGPL-2.1's notice-preservation terms.
 
 The decorated card style's numerals (Ace and 2-10) are set in the source
-sheet's own referenced font, DejaVu Serif Bold, bundled via the
-`dejavu-fonts-ttf` npm package and preloaded in `useFontsPreload.ts`:
+sheet's own referenced font, DejaVu Serif Bold, which the consuming app loads
+(for example from the `dejavu-fonts-ttf` npm package); the corner ranks of the
+other styles are outlines of the same font (`src/rankGlyphs.ts`):
 
 - Fonts are (C) 2003 Bitstream, Inc. DejaVu's own changes are in the public
   domain. Bitstream Vera is a trademark of Bitstream, Inc.
 - Licensed under the Bitstream Vera Fonts license (see
-  `node_modules/dejavu-fonts-ttf/LICENSE`), which permits free use,
+  `scripts/fonts/LICENSE-DejaVu`), which permits free use,
   modification and redistribution provided this copyright and trademark
   notice is kept with any distributed copy of the typeface.

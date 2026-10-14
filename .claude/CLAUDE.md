@@ -28,7 +28,15 @@ npm run build:watch
 npm run verify     # lint && test && typecheck && build - also runs via `preversion` (see Release)
 node scripts/generate-rank-glyphs.mjs   # regenerate src/rankGlyphs.ts from the vendored DejaVu Serif Bold (see below)
 node scripts/generate-court-bitmaps.mjs # regenerate src/artwork/courtBitmaps/ (PNGs + index.ts) from DecoratedCourtFigure (see below)
+node scripts/generate-card-artwork.mjs     # regenerate artwork/decoratedCustom/{suit,index}.ts from the vendored SVG-cards sheet (see below)
+node scripts/generate-court-figures.mjs    # regenerate artwork/decoratedCustom/courtFigures.ts
+node scripts/generate-card-back.mjs        # regenerate artwork/backs.ts
+node scripts/generate-court-silhouette.mjs # regenerate artwork/court.ts
 ```
+
+Every generator takes `--check` (exit 1 if its checked-in output is stale); the tests run all of them
+that way. After regenerating SVG-cards art, rerun `generate-court-bitmaps.mjs` too, since its PNGs
+are rendered from `decoratedCustom/courtFigures.ts`.
 
 Always run `npm run lint` before finishing any task.
 
@@ -93,16 +101,19 @@ Enforced by ESLint + Prettier - run the linter before finishing any task.
 | `DecoratedCourtFigureBitmap.tsx` / `artwork/courtBitmaps/` | A pre-rasterized `<Image>` stand-in for `DecoratedCourtFigure` (default palette only, no `colorOverrides`, `resizeMode='stretch'`), for animations that mount court figures many times a second (a deal's ghost pool), where the vector tree's mount cost is the bottleneck. `artwork/courtBitmaps/` (12 PNGs at 288x306 + `index.ts`) is GENERATED (never edit it) by `scripts/generate-court-bitmaps.mjs`, which renders the real `DecoratedCourtFigure` to SVG via esbuild + react-native-web + `react-dom/server` and rasterizes it with `@resvg/resvg-js` (devDependencies only). `index.ts`'s first lines carry a **source hash**: sha256 of the exact SVG markup handed to resvg plus the resvg options. |
 | `DecoratedShapeRenderer.tsx` | Renders a `DecoratedShape` tree (see `artwork/types.ts`) as plain `react-native-svg` elements - no runtime XML parsing, no `<use>`. Shared by every `Decorated*` component above. |
 | `index.ts` | Public exports (see Public API below). |
-| `artwork/` | Raw art data: `types.ts` (the `OutlineArt`/`DecoratedShape`/`DecoratedArt`/`BackArt` shape vocabulary), `pips.ts`/`court.ts`/`backs.ts` (SVG-cards-derived, LGPL-2.1 - see `NOTICE.md`/`LICENSE`), `tarotPips.ts` (hand-authored, original), and `decoratedCustom/` (the full-colour illustrated pack, colors relabeled to named constants so callers can override them - see `colors.ts`'s `buildColorOverrideMap`). |
+| `artwork/` | Raw art data: `types.ts` (the `OutlineArt`/`DecoratedShape`/`DecoratedArt`/`BackArt` shape vocabulary), `pips.ts`/`court.ts`/`backs.ts` (SVG-cards-derived, LGPL-2.1 - see `NOTICE.md`/`LICENSE`), `tarotPips.ts` (hand-authored, original), and `decoratedCustom/` (the full-colour illustrated pack, colors relabeled to named constants so callers can override them - see `colors.ts`'s `buildColorOverrideMap`). Everything SVG-cards-derived except the club/heart/spade paths in `pips.ts` is GENERATED (never edit it) from `scripts/svg-cards/svg-cards.svg` (SVG-cards 4.0.2, vendored unmodified, not shipped) by the four scripts listed under Commands, which share `scripts/lib/svgCards.mjs` (sheet loading, `<use>`/transform helpers, colour relabeling, Prettier formatting for the linted outputs `backs.ts`/`court.ts`, and `--check`). `svgson` is a devDependency for them only. |
 
-### Why `artwork/decorated/` wasn't copied
+### Why there's no `artwork/decorated/`
 
-Solitaire has two illustrated-pack directories: `artwork/decoratedCustom/` (real colour-relabeled
-data, actually imported by `DecoratedCardFace`/`DecoratedCourtFigure`) and `artwork/decorated/` (its
-un-relabeled source, kept in Solitaire only as a fallback reference for regenerating the custom
-pack - confirmed to have zero runtime importers anywhere in that app). Only `decoratedCustom/` does
-any real work here, so only it was copied; regenerating a relabeled pack from scratch is a
-build-time script concern, not something this runtime package needs to carry.
+Solitaire had two illustrated-pack directories: `artwork/decoratedCustom/` (colour-relabeled data,
+actually imported by `DecoratedCardFace`/`DecoratedCourtFigure`) and `artwork/decorated/` (its
+un-relabeled source, with zero runtime importers), produced by a separate
+`generate-decorated-custom-pack.mjs` pass between the two. Only `decoratedCustom/` was copied here,
+and when the extraction scripts were ported (from Solitaire commit `ec825cf`), that relabel pass
+became `relabelColors` in `scripts/lib/svgCards.mjs`, which `generate-card-artwork.mjs` and
+`generate-court-figures.mjs` apply before writing, so no intermediate directory exists. The port
+was checked by regenerating from the sheet: the art is byte-identical to what Solitaire generated,
+only the header comments changed.
 
 ### Why `Joker`/`AnyCard` are additive, not a `Card` change
 
@@ -177,6 +188,7 @@ No `react-native-reanimated`, no `react-native-gesture-handler`.
 - **Location:** `src/__tests__/*.test.ts` and `*.test.tsx`
 - **Corner-rank tests:** `CornerRank.test.tsx` renders every rank x suit x style (compact/numeric/tarot) at card widths 28/28.2/34/50.571/64/96 (plus a 0.37pt sweep from 28 to 96 for a handful of ranks) and reads the ink boxes back off the rendered props + the generated outline table, through a model of react-native-svg's native `parseInt` truncation (rank ink centre == pip centre within 0.002W, J/Q ink clear of the 0.45W strip by 0.02W, '10' ink-left 0.062W and >= 0.10W from the pip, drawn at exactly the designed scale, `faceUpFanOffset(1) === 0.45`), the native/web accessibility props, and `RANK_INK_RIGHT_FRACTION` against the rendered '10'. `rankGlyphs.test.ts` (node environment) checks the table against the vendored font with opentype.js and runs `scripts/generate-rank-glyphs.mjs --check` (fails if `src/rankGlyphs.ts` is stale).
 - **Court-bitmap check:** `courtBitmaps.test.ts` runs `scripts/generate-court-bitmaps.mjs --check`, which re-renders the 12 SVGs (no rasterizing) and fails if the checked-in `index.ts` differs, i.e. if its source hash no longer matches what `DecoratedCourtFigure` renders today (art, render output or WIDTH/HEIGHT changed without regenerating), or if any PNG is missing or not exactly 288x306. It deliberately does NOT compare PNG bytes: resvg's rasterizer (tiny-skia) takes different SIMD paths on Apple Silicon and x86_64, so the same SVG gives PNGs that differ in a few anti-aliased edge pixels between a Mac and the Linux CI runner (a byte compare passed locally and failed every CI run from the bitmaps' introduction in 95c72f1 until this was changed). The SVG markup is pure JS output and identical on every OS. Consequences: regenerating on a different machine can churn PNG bytes with no visible change (harmless), and a `@resvg/resvg-js` upgrade does not fail the check, so rerun the script after one if the PNGs should pick up its rendering changes.
+- **SVG-cards art check:** `svgCardsArt.test.ts` runs each of the four SVG-cards scripts with `--check`, which re-extracts from the vendored sheet and fails if any checked-in file differs byte for byte (a hand edit, or a script change that wasn't followed by regenerating).
 - **Mocks:** `src/__mocks__/`:
   - `react-native` - `StyleSheet.create`/`flatten` as identity functions (this package never
     measures a ref or reads `useWindowDimensions`, unlike `@tastic/split-screen`'s own richer mock);
@@ -217,7 +229,7 @@ No `react-native-reanimated`, no `react-native-gesture-handler`.
   `text`) just by being imported and rendered through those cases, so this also keeps
   `DecoratedShapeRenderer`'s own switch meaningfully covered without a dedicated unit test file for
   it.
-- **Current:** 13 suites / 336 tests, all passing. Coverage: 98.62% stmts / 96.83% branches / 93.02%
+- **Current:** 14 suites / 340 tests, all passing. Coverage: 98.62% stmts / 96.83% branches / 93.02%
   funcs / 99.12% lines - clears the shared preset's 70%/70%/70%/70% default on every metric (every
   `artwork/` data file included, since `collectCoverageFrom` scopes to all of `src/**/*.{ts,tsx}`),
   so `jest.config.cjs` carries no local `coverageThreshold` override.
