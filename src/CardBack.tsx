@@ -26,6 +26,23 @@ interface CardBackProps {
   invertDarkModeColors?: boolean
 }
 
+// A tag is either up to 3 plain characters or exactly one emoji (see @tastic/profile's isValidTag), so the
+// presence of a pictograph is enough to tell the two apart - the same check @tastic/hud's
+// InlineColorPicker draws for its own font sizing.
+const EMOJI_PRESENT = /\p{Extended_Pictographic}/u
+
+// Tag sizes, as fractions of TAG_AREA_HALF: letter tags shrink with their length so 1-3 characters all
+// fit; an emoji is one roughly square glyph, sized so its corners still clear the diamond's edge.
+const LETTER_FONT_FRACTION = [1.25, 0.95, 0.72]
+const EMOJI_FONT_FRACTION = 1.25
+// The emoji keeps its own colors but lets the back show through, so it reads as part of the card
+// rather than a sticker on it (Solitaire, 2026-10-15).
+const EMOJI_OPACITY = 0.6
+// Baselines that put each kind's ink on the medallion's centre: a letter's cap height (the ratio the
+// monogram has always used), an emoji's whole glyph.
+const LETTER_BASELINE_FRACTION = 0.35 / 1.15
+const EMOJI_BASELINE_FRACTION = 0.36
+
 function diamondPath(cx: number, cy: number, half: number): string {
   return `M${cx},${cy - half} L${cx + half},${cy} L${cx},${cy + half} L${cx - half},${cy} Z`
 }
@@ -74,10 +91,16 @@ export const CardBack = React.memo(function CardBack({ colors, width, height, ta
   const centerX = width / 2
   const centerY = height / 2
 
-  const hasTag = !!tag && tag.trim().length > 0
-  // Slightly larger medallion when it needs to host a monogram - the no-tag roundel stays exactly
-  // cell*0.5 (unchanged from before), so that path never redraws at a different size.
-  const medallionHalf = hasTag ? cell * 0.95 : cell * 0.5
+  const trimmedTag = tag?.trim() ?? ''
+  const hasTag = trimmedTag.length > 0
+  const isEmojiTag = hasTag && EMOJI_PRESENT.test(trimmedTag)
+  // A tag sits alone in one bigger, solid diamond of the back color: nothing else is drawn behind it, so
+  // neither the weave nor a medallion outline shows through a see-through emoji. The no-tag medallion
+  // (cell*1.45 outer, cell*0.5 inner) is unchanged, so that path never redraws at a different size.
+  const outerHalf = hasTag ? cell * 2.05 : cell * 1.45
+  const tagAreaHalf = cell * 1.6
+  const ink = getContrastColor(colors.cardBack)
+  const tagFontSize = isEmojiTag ? tagAreaHalf * EMOJI_FONT_FRACTION : tagAreaHalf * (LETTER_FONT_FRACTION[Math.min(Array.from(trimmedTag).length, 3) - 1] ?? 1)
 
   // Equal pixel margin on every side, not one uniform scale factor - width/height aren't equal (a
   // card is taller than it is wide), so the same *proportion* shaved off each axis leaves more
@@ -101,11 +124,11 @@ export const CardBack = React.memo(function CardBack({ colors, width, height, ta
         <Path d={solidCells.join(' ')} fill={patternColor} opacity={0.55} />
         <Path d={outlineCells.join(' ')} fill='none' stroke={patternColor} strokeWidth={1} strokeOpacity={0.55} />
 
-        <Path d={diamondPath(centerX, centerY, cell * 1.45)} fill={colors.cardBack} stroke={patternColor} strokeWidth={1.5} />
-        <Path d={diamondPath(centerX, centerY, medallionHalf)} fill={patternColor} />
+        <Path d={diamondPath(centerX, centerY, outerHalf)} fill={colors.cardBack} stroke={patternColor} strokeWidth={1.5} />
+        {!hasTag && <Path d={diamondPath(centerX, centerY, cell * 0.5)} fill={patternColor} />}
         {hasTag && (
-          <SvgText x={centerX} y={centerY} dy={medallionHalf * 0.35} fill={getContrastColor(patternColor)} fontSize={medallionHalf * 1.15} fontWeight='700' textAnchor='middle'>
-            {tag!.trim().toUpperCase()}
+          <SvgText x={centerX} y={centerY} dy={tagFontSize * (isEmojiTag ? EMOJI_BASELINE_FRACTION : LETTER_BASELINE_FRACTION)} fill={ink} fontSize={tagFontSize} fontWeight={isEmojiTag ? undefined : '700'} opacity={isEmojiTag ? EMOJI_OPACITY : undefined} textAnchor='middle'>
+            {isEmojiTag ? trimmedTag : trimmedTag.toUpperCase()}
           </SvgText>
         )}
 
