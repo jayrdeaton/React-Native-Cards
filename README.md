@@ -68,9 +68,9 @@ Re-run `npm run build && yalc push` after any change to propagate it to every li
 
 - `react` >=19.0.0, `react-native` >=0.76.0
 - `react-native-svg` >=15.0.0: every SVG-rendered face/back/figure/pip
-
-Regular dependency: `@rific/auto-paper` (`CardBack`'s player-tag monogram picks a legible ink via
-`getContrastColor`).
+- `@rific/auto-paper` >=0.8.0: `CardBack`'s player-tag monogram picks a legible ink via
+  `getContrastColor`. Its own peers (`@rific/core`, `react-native-paper`,
+  `react-native-safe-area-context`) come with it.
 
 ## License
 

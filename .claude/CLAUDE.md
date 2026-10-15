@@ -165,11 +165,13 @@ ever render the finished components.
   real published `dist`/`react-native`-conditioned entry unconditionally pulls in every Paper-wrapped
   component it exports alongside `getContrastColor` (the only export `CardBack.tsx` actually uses).
   Not part of the original spec for this package - surfaced as real `tsc`/Metro-resolution failures
-  once `@rific/auto-paper` was wired in as a regular dependency, the same category of gap Solitaire's
-  own CLAUDE.md documents for `@shopify/react-native-skia` and `@tastic/hud`'s barrel.
-
-Regular (non-peer) dependency: `@rific/auto-paper` - `CardBack`'s player-tag monogram picks a
-legible ink via `getContrastColor`.
+  once `@rific/auto-paper` was wired in, the same category of gap Solitaire's own CLAUDE.md
+  documents for `@shopify/react-native-skia` and `@tastic/hud`'s barrel.
+- `@rific/auto-paper` >=0.8.0 (the first release exporting `getContrastColor`) - `CardBack`'s
+  player-tag monogram picks a legible ink with it. A peer, not a regular dependency, since 0.5.0
+  (2026-10-15): as a dependency it pinned its own copy of auto-paper (and `@rific/core`) next to the
+  app's, two instances of a package whose theme context the app shares. `@rific/auto-paper` and
+  `@rific/core` are devDependencies for the tests and typecheck.
 
 No `react-native-reanimated`, no `react-native-gesture-handler`.
 
