@@ -99,4 +99,53 @@ describe('SuitPip', () => {
       expect(flat(node.props.style)).not.toHaveProperty('transform')
     }
   })
+
+  describe('outline', () => {
+    type Node = { type: string; props: Record<string, unknown>; children?: Node[] | null }
+    const paths = (node: Node): Node[] => (node.type === 'Path' ? [node] : (node.children ?? []).flatMap(paths))
+    const pipAt = async (suit: Suit, outline?: { color: string; width: number }, theme: 'standard' | 'tarot' = 'standard') => {
+      const { toJSON } = await render(<SuitPip suit={suit} color='#1A1A1A' size={SIZE} theme={theme} outline={outline} />)
+      return toJSON() as unknown as Node
+    }
+
+    it.each(suits)('rings every %s path in the outline colour before any fill, so no ring covers a neighbouring fill', async (suit) => {
+      const drawn = paths(await pipAt(suit, { color: '#FFFFFF', width: 1.5 }))
+      const count = suitPipArt[suit].paths.length
+      expect(drawn).toHaveLength(count * 2)
+      drawn.slice(0, count).forEach((p) => expect(p.props).toMatchObject({ fill: '#FFFFFF', stroke: '#FFFFFF' }))
+      drawn.slice(count).forEach((p) => {
+        expect(p.props.fill).toBe('#1A1A1A')
+        expect(p.props.stroke).toBeUndefined()
+      })
+    })
+
+    it.each(suits)('keeps the %s glyph at its own size: the box grows by the width on every side and the viewBox by the same amount in its units', async (suit) => {
+      const plain = await pipAt(suit)
+      const ringed = await pipAt(suit, { color: '#FFFFFF', width: 2 })
+      const [x, y, w, h] = suitPipArt[suit].viewBox
+      const plainSize = Number(plain.props.width)
+      const ringedSize = Number(ringed.props.width)
+      expect(ringedSize).toBeCloseTo(plainSize + 4, 9)
+      expect(ringed.props.height).toBe(ringed.props.width)
+      const [vx, vy, vw, vh] = String(ringed.props.viewBox).split(' ').map(Number)
+      const ring = (2 * Math.max(w, h)) / plainSize
+      expect([vx, vy, vw, vh].map((v) => +v.toFixed(9))).toEqual([x - ring, y - ring, w + 2 * ring, h + 2 * ring].map((v) => +v.toFixed(9)))
+      // Same points per viewBox unit as without the outline (SVG's meet fit scales by the longer side).
+      expect(ringedSize / Math.max(vw, vh)).toBeCloseTo(plainSize / Math.max(w, h), 9)
+      // The stroke straddles its path, so twice the ring lands exactly `width` points outside the fill.
+      expect(Number(paths(ringed)[0].props.strokeWidth)).toBeCloseTo(2 * ring, 9)
+    })
+
+    it('rings the tarot art too', async () => {
+      const drawn = paths(await pipAt('diamonds', { color: '#1A1A1A', width: 1 }, 'tarot'))
+      expect(drawn).toHaveLength(2)
+      expect(drawn[0].props.stroke).toBe('#1A1A1A')
+    })
+
+    it('draws exactly as before without one', async () => {
+      const drawn = paths(await pipAt('clubs'))
+      expect(drawn).toHaveLength(suitPipArt.clubs.paths.length)
+      drawn.forEach((p) => expect(p.props.stroke).toBeUndefined())
+    })
+  })
 })

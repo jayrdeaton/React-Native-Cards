@@ -27,6 +27,11 @@ interface SuitPipProps {
    * corrections for the standard art's specific geometry, not a property of "suit" in general.
    * Defaults to 'standard'. */
   theme?: 'standard' | 'tarot'
+  /** A ring of `color`, `width` points wide, around the glyph's outside edge (and around any hole in it, e.g. the tarot coin's star), for a pip
+   * drawn somewhere other than a card face: a black spade over a dark felt reads with a white one. The glyph itself stays `size`; the box grows by
+   * `width` on every side, keeping its centre. Meant for a free-standing pip, not the corner row (`edgeFill` right-anchors the box, so the
+   * grown box would shift the ink left by `width`). */
+  outline?: { color: string; width: number }
 }
 
 // A square box scaled uniformly (SVG's default "meet" fit) is height-constrained for any
@@ -81,7 +86,7 @@ const CORNER_NUDGE_PX: Partial<Record<Suit, number>> = {
  * except when a move actually happens, so that work is pure waste that can visibly stutter an
  * in-progress drag on web, where reconciliation runs on the same thread as the gesture.
  */
-export const SuitPip = React.memo(function SuitPip({ suit, color, size, style, edgeFill, theme = 'standard' }: SuitPipProps) {
+export const SuitPip = React.memo(function SuitPip({ suit, color, size, style, edgeFill, theme = 'standard', outline }: SuitPipProps) {
   const art = theme === 'tarot' ? tarotPipArt[suit] : suitPipArt[suit]
   const [x, y, w, h] = art.viewBox
   const compensation = theme === 'tarot' ? 1 : (SIZE_COMPENSATION[suit] ?? (edgeFill && suit === 'diamonds' ? DIAMOND_EDGE_FILL_COMPENSATION : 1))
@@ -105,12 +110,19 @@ export const SuitPip = React.memo(function SuitPip({ suit, color, size, style, e
   // the big-pip half of CardFace, which never passes edgeFill).
   const perceptualNudge = theme !== 'standard' ? 0 : edgeFill ? (CORNER_NUDGE_PX[suit] ?? 0) : suit === 'hearts' ? HEART_NUDGE_PX : 0
   const translateX = perceptualNudge + recenter
+  // The outline's width in viewBox units, padded onto every side of the viewBox as the box grows by `outline.width` points on every side, so the
+  // scale (renderSize points across the art's longer side) is unchanged. Each path is drawn first in the outline colour with a stroke twice that
+  // wide (a stroke straddles its path, so half of it lands outside the fill), then every fill over the top, so one subpath's ring never covers
+  // another's fill (the club's three lobes and stem overlap).
+  const ring = outline ? (outline.width * Math.max(w, h)) / renderSize : 0
+  const boxSize = renderSize + (outline ? 2 * outline.width : 0)
   return (
-    <Svg width={renderSize} height={renderSize} viewBox={`${x} ${y} ${w} ${h}`} style={[style, translateX !== 0 && { transform: [{ translateX }] }]}>
+    <Svg width={boxSize} height={boxSize} viewBox={`${x - ring} ${y - ring} ${w + 2 * ring} ${h + 2 * ring}`} style={[style, translateX !== 0 && { transform: [{ translateX }] }]}>
       {/* The source paths are authored upside-down (their stem/cusp points the wrong
           way at 0deg) - rotate 180 about the viewBox's own center (which is the
           origin for every suit here) to get the conventional upright glyph. */}
       <G transform='rotate(180)'>
+        {outline && art.paths.map((d, i) => <Path key={`ring-${i}`} d={d} fill={outline.color} stroke={outline.color} strokeWidth={2 * ring} strokeLinejoin='round' strokeLinecap='round' />)}
         {art.paths.map((d, i) => (
           <Path key={i} d={d} fill={color} />
         ))}

@@ -10,10 +10,11 @@ import { CourtFigure } from './CourtFigure'
 import { DecoratedCardFace } from './DecoratedCardFace'
 import { DecoratedCourtFigure } from './DecoratedCourtFigure'
 import { DecoratedCourtFigureBitmap } from './DecoratedCourtFigureBitmap'
+import { cardFaceColor, CardStyle, suitInk } from './faceInk'
 import { RANK_SVG_LEFT_FRACTION, RankGlyph } from './RankGlyph'
 import { RankGlyphLabel } from './rankGlyphs'
 import { SuitPip } from './SuitPip'
-import { Card, cardColor, Rank, rankLabel } from './types'
+import { Card, Rank, rankLabel } from './types'
 
 function courtRankFor(rank: Rank): CourtRank | null {
   switch (rank) {
@@ -56,7 +57,7 @@ interface CardFaceProps {
    * corner pip) except the big center glyph on non-court ranks: a large rank numeral (BIG_RANK_
    * FONT_SCALE below) instead of a big SuitPip, for a more at-a-glance-readable tableau (e.g. a
    * Spider run of same-suit cards, where every big pip looks alike). Defaults to 'compact'. */
-  cardStyle?: 'compact' | 'decorated' | 'tarot' | 'numeric'
+  cardStyle?: CardStyle
   /** Dark mode only: flips black suit ink (spades/clubs) to white and the card face to near-black
    * (see stores/settings.tsx's invertDarkModeColors and theme.ts's *Inverted tokens). Never touches
    * red ink. Tarot's own tarotInk palette (blue/gold/brown/grey - no black or white) is untouched
@@ -164,7 +165,7 @@ export const CardFace = React.memo(function CardFace({ card, colors, width, heig
   // See bitmapCourtFigures' own doc comment for why each of these disqualifies the bitmap.
   const useBitmapCourtFigure = bitmapCourtFigures && !muted && !invertDarkModeColors && cardStyle !== 'tarot' && cardStyle !== 'decorated'
   const blackInk = invertDarkModeColors ? colors.textBlackInverted : colors.textBlack
-  const color = muted ? blackInk : isTarot ? tarotInk[card.suit] : cardColor(card.suit) === 'red' ? colors.textRed : blackInk
+  const color = muted ? blackInk : suitInk(card.suit, colors, { cardStyle, invertDarkModeColors })
   const cornerRowHeight = width * CORNER_ROW_FRACTION
   const courtRank = courtRankFor(card.rank)
   // Dark mode's invert only ever remaps inkBlack/cardWhite - red, gold, navy pass through
@@ -204,7 +205,7 @@ export const CardFace = React.memo(function CardFace({ card, colors, width, heig
         // translucent border/ink color - see MUTED_OPACITY above - so an empty foundation slot's
         // hint floats on its own felt-colored backdrop rather than sitting on an opaque white
         // card shape.
-        backgroundColor: muted ? 'transparent' : invertDarkModeColors ? colors.cardFaceInverted : '#FFFFFF',
+        backgroundColor: muted ? 'transparent' : cardFaceColor(colors, invertDarkModeColors),
         borderWidth: width * FRAME_BORDER_FRACTION,
         borderColor: muted ? color : invertDarkModeColors ? colors.textBlackInverted : '#000000',
         borderRadius: width * 0.06,

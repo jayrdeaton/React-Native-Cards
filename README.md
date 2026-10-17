@@ -19,7 +19,10 @@ reuse it without depending on Solitaire itself.
 - **`CourtFigure`**: the single-tone Jack/Queen/King silhouette `CardFace` falls back to for a
   muted court card, since the full-colour decorated art has no neutral form.
 - **`SuitPip`**: a single suit glyph (heart/diamond/club/spade), tintable by the caller, with a
-  `tarot` theme swapping in cups/coins/wands/swords.
+  `tarot` theme swapping in cups/coins/wands/swords, and an optional `outline` ring for a pip drawn
+  off the card (e.g. a black spade over a dark table).
+- **`suitInk` / `cardFaceColor`**: the ink a face-up card draws each suit in and the face it draws
+  it on, for a given card style and dark-mode inversion, so a pip drawn elsewhere matches the cards.
 - **`DecoratedCardFace` / `DecoratedCardBack` / `DecoratedCourtFigure`**: the full-colour
   illustrated deck's own card face, card back (`ornate`/`plain`), and court figure, each
   selectively recolorable via `colorOverrides` (e.g. for a dark-mode ink inversion) without
