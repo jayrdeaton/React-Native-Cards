@@ -103,3 +103,7 @@ npm install @tastic/cards
 The code is released under the MIT License, see [LICENSE](LICENSE).
 
 Most of the card artwork under [`src/artwork/`](src/artwork) (the pips, court figures, decorated faces, and the Ornate and Plain backs, plus the pre-rendered `courtBitmaps/`) is derived from [SVG-cards](https://github.com/htdebeer/SVG-cards), (C) 2005 David Bellot and (C) 2016, 2017 Huub de Beer, and is licensed under the [LGPL-2.1](src/artwork/LICENSE). See [NOTICE.md](src/artwork/NOTICE.md) for the full attribution, which must be kept with any distributed copy of the artwork. The diamond pip, the tarot pips, and the Geometric back are original. The package's SPDX license is `(MIT AND LGPL-2.1-only)`.
+
+---
+
+Made by [Infinite Token](https://www.infinitetoken.com), the team behind [Lumber](https://lumber.infinitetoken.com): end-to-end encrypted logging.
