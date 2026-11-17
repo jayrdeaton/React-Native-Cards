@@ -37,7 +37,7 @@ the repository at `scripts/svg-cards/svg-cards.svg`.
 This notice must be kept with any distributed copy of this artwork (e.g. an
 in-app credits/about screen), per the LGPL-2.1's notice-preservation terms.
 
-The decorated card style's numerals (Ace and 2-10) are set in the source
+The decorated card style's ranks (Ace to King) are set in the source
 sheet's own referenced font, DejaVu Serif Bold, which the consuming app loads
 (for example from the `dejavu-fonts-ttf` npm package); the corner ranks of the
 other styles are outlines of the same font (`src/rankGlyphs.ts`):
